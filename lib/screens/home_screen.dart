@@ -57,17 +57,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 controller: _searchController,
                 focusNode: _searchFocusNode,
                 onChanged: _onSearchChanged,
+                autofocus: true,
+                cursorColor: theme.colorScheme.primary,
                 decoration: InputDecoration(
                   hintText: 'Search passwords...',
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   filled: false,
+                  contentPadding: EdgeInsets.zero,
                   hintStyle: TextStyle(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.normal,
                   ),
                 ),
                 style: TextStyle(
                   color: theme.colorScheme.onSurface,
-                  fontSize: 16,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
                 ),
               )
             : ShaderMask(
@@ -84,38 +91,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               )
             : null,
         actions: [
-          // Sort options
-          PopupMenuButton<SortOption>(
-            icon: const Icon(Icons.sort_rounded),
-            tooltip: 'Sort',
-            onSelected: (option) {
-              ref.read(sortOptionProvider.notifier).state = option;
-            },
-            itemBuilder: (context) {
-              final currentSort = ref.read(sortOptionProvider);
-              return [
-                _buildSortMenuItem(SortOption.nameAsc, 'A → Z', Icons.sort_by_alpha_rounded, currentSort),
-                _buildSortMenuItem(SortOption.nameDesc, 'Z → A', Icons.sort_by_alpha_rounded, currentSort),
-                _buildSortMenuItem(SortOption.dateNewest, 'Newest', Icons.schedule_rounded, currentSort),
-                _buildSortMenuItem(SortOption.dateOldest, 'Oldest', Icons.history_rounded, currentSort),
-              ];
-            },
-          ),
+          // Only show sort when not searching
+          if (!_isSearching)
+            PopupMenuButton<SortOption>(
+              icon: const Icon(Icons.sort_rounded),
+              tooltip: 'Sort',
+              onSelected: (option) {
+                ref.read(sortOptionProvider.notifier).state = option;
+              },
+              itemBuilder: (context) {
+                final currentSort = ref.read(sortOptionProvider);
+                return [
+                  _buildSortMenuItem(SortOption.nameAsc, 'A → Z', Icons.sort_by_alpha_rounded, currentSort),
+                  _buildSortMenuItem(SortOption.nameDesc, 'Z → A', Icons.sort_by_alpha_rounded, currentSort),
+                  _buildSortMenuItem(SortOption.dateNewest, 'Newest', Icons.schedule_rounded, currentSort),
+                  _buildSortMenuItem(SortOption.dateOldest, 'Oldest', Icons.history_rounded, currentSort),
+                ];
+              },
+            ),
+          // Search/Close button
           IconButton(
             icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
             onPressed: _isSearching
                 ? () {
                     _searchController.clear();
                     _onSearchChanged('');
+                    _toggleSearch();
                   }
                 : _toggleSearch,
           ),
-          IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () {
-              _scaffoldKey.currentState?.openEndDrawer();
-            },
-          ),
+          // Only show menu when not searching
+          if (!_isSearching)
+            IconButton(
+              icon: const Icon(Icons.menu_rounded),
+              onPressed: () {
+                _scaffoldKey.currentState?.openEndDrawer();
+              },
+            ),
         ],
       ),
       endDrawer: _buildDrawer(theme, isDarkMode),
@@ -124,11 +136,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : _buildPasswordList(passwords, theme),
       floatingActionButton: Container(
         decoration: BoxDecoration(
-          gradient: AppTheme.primaryGradient,
+          gradient: AppTheme.goldGradient,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: theme.colorScheme.primary.withValues(alpha: 0.4),
+              color: const Color(0xFFD4A84B).withValues(alpha: 0.4),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -138,7 +150,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onPressed: () => Navigator.of(context).pushNamed('/add'),
           backgroundColor: Colors.transparent,
           elevation: 0,
-          child: const Icon(Icons.add_rounded, color: Colors.white),
+          child: Icon(Icons.add_rounded, color: Theme.of(context).scaffoldBackgroundColor),
         ),
       ),
     );
@@ -150,7 +162,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     IconData icon,
     SortOption currentSort,
   ) {
+    final theme = Theme.of(context);
     final isSelected = currentSort == option;
+    final isDark = theme.brightness == Brightness.dark;
+    
     return PopupMenuItem(
       value: option,
       child: Row(
@@ -158,14 +173,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Icon(
             isSelected ? Icons.check_rounded : icon,
             size: 20,
-            color: isSelected ? Theme.of(context).colorScheme.primary : null,
+            color: isSelected 
+                ? theme.colorScheme.primary 
+                : (isDark ? Colors.white70 : Colors.black87),
           ),
           const SizedBox(width: 12),
           Text(
             label,
             style: TextStyle(
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              color: isSelected ? Theme.of(context).colorScheme.primary : null,
+              color: isSelected 
+                  ? theme.colorScheme.primary 
+                  : (isDark ? Colors.white : Colors.black87),
             ),
           ),
         ],
@@ -184,7 +203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: AppTheme.primaryGradient,
+                gradient: AppTheme.logoGradient,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

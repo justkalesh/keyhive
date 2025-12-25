@@ -1,38 +1,34 @@
 import 'package:flutter/material.dart';
 
-/// AppTheme - Futuristic Gen Z Design System for KeyHive
+/// AppTheme - Futuristic Design with Logo Color Palette
 /// 
 /// Design Philosophy:
-/// - Dark mode first with neon accents
+/// - Navy Blue (#1E3A5F) + Gold (#D4A84B) from logo
+/// - Dark mode first with metallic gold accents
 /// - Glassmorphism effects
-/// - Gradient backgrounds
-/// - Vibrant accent colors
 /// - Modern rounded corners
 class AppTheme {
   AppTheme._();
 
   // ==========================================================================
-  // COLOR PALETTE - Futuristic Neon + Deep Dark
+  // COLOR PALETTE - From KeyHive Logo
   // ==========================================================================
   
-  // Primary: Electric Purple/Violet
-  static const Color _primaryLight = Color(0xFF8B5CF6);
-  static const Color _primaryDark = Color(0xFFB794F6);
+  // Primary: Navy Blue (from logo border)
+  static const Color _navyBlue = Color(0xFF1E3A5F);
+  static const Color _navyLight = Color(0xFF2D5A8A);
   
-  // Secondary: Neon Cyan
-  static const Color _secondaryLight = Color(0xFF22D3EE);
-  static const Color _secondaryDark = Color(0xFF67E8F9);
+  // Secondary: Gold (from logo honeycomb)
+  static const Color _gold = Color(0xFFD4A84B);
+  static const Color _goldLight = Color(0xFFE8C675);
   
-  // Accent: Hot Pink
-  static const Color _accentPink = Color(0xFFEC4899);
+  // Accent: Teal (from logo accents)
+  static const Color _teal = Color(0xFF2A7B9B);
   
-  // Accent: Electric Blue
-  static const Color _accentBlue = Color(0xFF3B82F6);
-  
-  // Background: Deep Space
-  static const Color _backgroundDark = Color(0xFF0A0A0F);
-  static const Color _surfaceDark = Color(0xFF13131A);
-  static const Color _cardDark = Color(0xFF1A1A24);
+  // Background: Deep Space Navy
+  static const Color _backgroundDark = Color(0xFF0A0F1A);
+  static const Color _surfaceDark = Color(0xFF121A2A);
+  static const Color _cardDark = Color(0xFF1A2438);
   
   // Light mode backgrounds
   static const Color _backgroundLight = Color(0xFFF8FAFC);
@@ -49,12 +45,11 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      fontFamily: 'Inter',
       
       colorScheme: ColorScheme.light(
-        primary: _primaryLight,
-        secondary: _secondaryLight,
-        tertiary: _accentPink,
+        primary: _navyBlue,
+        secondary: _gold,
+        tertiary: _teal,
         surface: _surfaceLight,
         error: _errorColor,
         onPrimary: Colors.white,
@@ -68,10 +63,10 @@ class AppTheme {
         centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: _surfaceLight.withValues(alpha: 0.8),
-        foregroundColor: _primaryLight,
+        backgroundColor: _surfaceLight.withValues(alpha: 0.9),
+        foregroundColor: _navyBlue,
         titleTextStyle: const TextStyle(
-          color: _primaryLight,
+          color: _navyBlue,
           fontSize: 22,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
@@ -94,7 +89,7 @@ class AppTheme {
       ),
       
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: _primaryLight,
+        backgroundColor: _gold,
         foregroundColor: Colors.white,
         elevation: 8,
         shape: RoundedRectangleBorder(
@@ -111,14 +106,14 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: _primaryLight, width: 2),
+          borderSide: const BorderSide(color: _navyBlue, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       ),
       
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: _primaryLight,
+          backgroundColor: _navyBlue,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
@@ -135,7 +130,7 @@ class AppTheme {
       
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: _primaryLight,
+          foregroundColor: _navyBlue,
           textStyle: const TextStyle(
             fontWeight: FontWeight.w600,
           ),
@@ -145,23 +140,22 @@ class AppTheme {
   }
 
   // ==========================================================================
-  // DARK THEME - Futuristic Neon
+  // DARK THEME - Navy + Gold
   // ==========================================================================
   
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      fontFamily: 'Inter',
       
       colorScheme: ColorScheme.dark(
-        primary: _primaryDark,
-        secondary: _secondaryDark,
-        tertiary: _accentPink,
+        primary: _goldLight,
+        secondary: _navyLight,
+        tertiary: _teal,
         surface: _surfaceDark,
         error: _errorColor,
-        onPrimary: Colors.black,
-        onSecondary: Colors.black,
+        onPrimary: _backgroundDark,
+        onSecondary: Colors.white,
         onSurface: Colors.white,
       ),
       
@@ -171,10 +165,10 @@ class AppTheme {
         centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: _surfaceDark.withValues(alpha: 0.8),
-        foregroundColor: _primaryDark,
+        backgroundColor: _surfaceDark.withValues(alpha: 0.9),
+        foregroundColor: _goldLight,
         titleTextStyle: const TextStyle(
-          color: _primaryDark,
+          color: _goldLight,
           fontSize: 22,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
@@ -186,7 +180,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: _gold.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -201,7 +195,7 @@ class AppTheme {
       ),
       
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: _primaryDark,
+        backgroundColor: _goldLight,
         foregroundColor: _backgroundDark,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -215,25 +209,25 @@ class AppTheme {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: _gold.withValues(alpha: 0.2),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: _gold.withValues(alpha: 0.2),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: _primaryDark, width: 2),
+          borderSide: const BorderSide(color: _goldLight, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       ),
       
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: _primaryDark,
+          backgroundColor: _goldLight,
           foregroundColor: _backgroundDark,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
@@ -250,7 +244,7 @@ class AppTheme {
       
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: _primaryDark,
+          foregroundColor: _goldLight,
           textStyle: const TextStyle(
             fontWeight: FontWeight.w600,
           ),
@@ -260,13 +254,13 @@ class AppTheme {
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return _primaryDark;
+            return _goldLight;
           }
           return Colors.grey;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return _primaryDark.withValues(alpha: 0.3);
+            return _goldLight.withValues(alpha: 0.3);
           }
           return Colors.grey.withValues(alpha: 0.3);
         }),
@@ -277,7 +271,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: _gold.withValues(alpha: 0.2),
           ),
         ),
       ),
@@ -301,23 +295,29 @@ class AppTheme {
   }
   
   // ==========================================================================
-  // GRADIENT HELPERS
+  // GRADIENT HELPERS - Logo Colors
   // ==========================================================================
   
   static LinearGradient get primaryGradient => const LinearGradient(
-    colors: [_primaryDark, _accentPink],
+    colors: [_navyBlue, _teal],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static LinearGradient get goldGradient => const LinearGradient(
+    colors: [_gold, _goldLight],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static LinearGradient get neonGradient => const LinearGradient(
-    colors: [_secondaryDark, _primaryDark],
+    colors: [_gold, _navyLight],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
-  static LinearGradient get cyberpunkGradient => const LinearGradient(
-    colors: [_accentPink, _primaryDark, _accentBlue],
+  static LinearGradient get logoGradient => const LinearGradient(
+    colors: [_navyBlue, _gold],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
