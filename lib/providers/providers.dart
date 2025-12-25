@@ -56,6 +56,25 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 final isDarkModeProvider = StateProvider<bool>((ref) => true);
 
 // =============================================================================
+// SECURITY SETTINGS
+// =============================================================================
+
+/// Clipboard auto-clear enabled (default: true)
+final clipboardAutoClearProvider = StateProvider<bool>((ref) => true);
+
+/// Clipboard auto-clear duration in seconds (default: 30)
+final clipboardClearDurationProvider = StateProvider<int>((ref) => 30);
+
+/// Lock app when minimized/backgrounded (default: true)
+final lockOnMinimizeProvider = StateProvider<bool>((ref) => true);
+
+/// Password visibility auto-hide enabled (default: true)
+final passwordAutoHideProvider = StateProvider<bool>((ref) => true);
+
+/// Password visibility duration in seconds (default: 30)
+final passwordVisibilityDurationProvider = StateProvider<int>((ref) => 30);
+
+// =============================================================================
 // SORT OPTIONS
 // =============================================================================
 

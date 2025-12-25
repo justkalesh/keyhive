@@ -4,14 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../models/password_entry.dart';
-import '../utils/clipboard_helper.dart';
 
 /// DetailScreen - Display full password entry details.
 /// 
 /// Features:
 /// - Show all password details
-/// - Copy password to clipboard with auto-clear (30s)
-/// - Password visibility timer (auto-hide after 30s)
+/// - Copy password to clipboard with configurable auto-clear
+/// - Password visibility timer (configurable via settings)
 /// - Edit and Delete actions
 class DetailScreen extends ConsumerStatefulWidget {
   final String entryId;
@@ -49,8 +48,11 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     });
   }
 
-  /// Toggle password visibility with auto-hide timer
+  /// Toggle password visibility with configurable auto-hide timer
   void _togglePasswordVisibility() {
+    final autoHideEnabled = ref.read(passwordAutoHideProvider);
+    final duration = ref.read(passwordVisibilityDurationProvider);
+    
     setState(() {
       _obscurePassword = !_obscurePassword;
     });
@@ -58,9 +60,9 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     // Cancel existing timer
     _visibilityTimer?.cancel();
 
-    // If showing password, start auto-hide timer (30 seconds)
-    if (!_obscurePassword) {
-      _visibilityTimer = Timer(const Duration(seconds: 30), () {
+    // If showing password and auto-hide is enabled, start timer
+    if (!_obscurePassword && autoHideEnabled) {
+      _visibilityTimer = Timer(Duration(seconds: duration), () {
         if (mounted) {
           setState(() {
             _obscurePassword = true;
@@ -73,15 +75,31 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   Future<void> _copyPassword() async {
     if (_entry == null) return;
 
-    // Use auto-clear clipboard helper (clears after 30 seconds)
-    await ClipboardHelper.copyWithAutoClear(_entry!.password);
+    final autoClearEnabled = ref.read(clipboardAutoClearProvider);
+    final clearDuration = ref.read(clipboardClearDurationProvider);
+
+    await Clipboard.setData(ClipboardData(text: _entry!.password));
+
+    // Schedule clipboard clear if enabled
+    if (autoClearEnabled) {
+      Future.delayed(Duration(seconds: clearDuration), () async {
+        final currentData = await Clipboard.getData('text/plain');
+        if (currentData?.text == _entry!.password) {
+          await Clipboard.setData(const ClipboardData(text: ''));
+        }
+      });
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password copied (auto-clears in 30s)'),
+        SnackBar(
+          content: Text(
+            autoClearEnabled 
+                ? 'Password copied (auto-clears in ${clearDuration}s)'
+                : 'Password copied to clipboard',
+          ),
           behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -320,17 +338,6 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   onPressed: _copyPassword,
                   icon: const Icon(Icons.copy),
                   label: const Text('Copy Password'),
-                ),
-              ),
-
-              // Security info
-              const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  'Password will auto-clear from clipboard in 30 seconds',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey,
-                  ),
                 ),
               ),
             ],

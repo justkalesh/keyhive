@@ -12,44 +12,72 @@ import 'screens/settings_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
-  // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize Hive for Flutter
   await Hive.initFlutter();
-
-  // Register Hive type adapters
   Hive.registerAdapter(PasswordEntryAdapter());
 
   runApp(
-    // Wrap app in ProviderScope for Riverpod
     const ProviderScope(
       child: KeyHiveApp(),
     ),
   );
 }
 
-/// Main application widget
-class KeyHiveApp extends ConsumerWidget {
+/// Main application widget with lifecycle observer for lock on minimize
+class KeyHiveApp extends ConsumerStatefulWidget {
   const KeyHiveApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<KeyHiveApp> createState() => _KeyHiveAppState();
+}
+
+class _KeyHiveAppState extends ConsumerState<KeyHiveApp> with WidgetsBindingObserver {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // Lock app when resumed from background (if setting enabled)
+    if (state == AppLifecycleState.resumed) {
+      final lockOnMinimize = ref.read(lockOnMinimizeProvider);
+      final isAuthenticated = ref.read(isAuthenticatedProvider);
+      
+      if (lockOnMinimize && isAuthenticated) {
+        // Reset authentication state and navigate to lock screen
+        ref.read(isAuthenticatedProvider.notifier).state = false;
+        _navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDarkMode = ref.watch(isDarkModeProvider);
     
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'KeyHive',
       debugShowCheckedModeBanner: false,
       
-      // Material 3 Theme
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       
-      // Start with Lock Screen
       initialRoute: '/',
       
-      // Route configuration
       routes: {
         '/': (context) => const LockScreen(),
         '/home': (context) => const HomeScreen(),
@@ -57,7 +85,6 @@ class KeyHiveApp extends ConsumerWidget {
         '/settings': (context) => const SettingsScreen(),
       },
       
-      // Handle dynamic routes (detail and edit screens require arguments)
       onGenerateRoute: (settings) {
         if (settings.name == '/detail') {
           final entryId = settings.arguments as String;

@@ -77,13 +77,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               )
-            : ShaderMask(
-                shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(bounds),
-                child: const Text(
-                  'KeyHive',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
+            : isDarkMode
+                ? ShaderMask(
+                    shaderCallback: (bounds) => AppTheme.goldGradient.createShader(bounds),
+                    child: const Text(
+                      'KeyHive',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  )
+                : Text(
+                    'KeyHive',
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
         leading: _isSearching
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
@@ -114,9 +122,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
             onPressed: _isSearching
                 ? () {
-                    _searchController.clear();
-                    _onSearchChanged('');
-                    _toggleSearch();
+                    if (_searchController.text.isNotEmpty) {
+                      // If text exists, just clear it
+                      _searchController.clear();
+                      _onSearchChanged('');
+                    } else {
+                      // If empty, close search bar
+                      _toggleSearch();
+                    }
                   }
                 : _toggleSearch,
           ),
@@ -136,21 +149,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : _buildPasswordList(passwords, theme),
       floatingActionButton: Container(
         decoration: BoxDecoration(
-          gradient: AppTheme.goldGradient,
+          gradient: isDarkMode ? AppTheme.goldGradient : AppTheme.primaryGradient,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFD4A84B).withValues(alpha: 0.4),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: FloatingActionButton(
           onPressed: () => Navigator.of(context).pushNamed('/add'),
           backgroundColor: Colors.transparent,
           elevation: 0,
-          child: Icon(Icons.add_rounded, color: Theme.of(context).scaffoldBackgroundColor),
+          child: Icon(Icons.add_rounded, color: isDarkMode ? theme.scaffoldBackgroundColor : Colors.white),
         ),
       ),
     );
