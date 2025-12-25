@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../models/password_entry.dart';
+import '../utils/password_strength.dart';
 
 /// AddEditScreen - Create or edit password entries.
 /// 
 /// Features:
 /// - TextFields for Platform, Username, Password
 /// - Password visibility toggle
+/// - Password strength indicator
 /// - Validation logic
 /// - Save/Update functionality
 class AddEditScreen extends ConsumerStatefulWidget {
@@ -32,14 +35,21 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
   bool _isLoading = false;
   bool _isEditing = false;
   PasswordEntry? _existingEntry;
+  String _currentPassword = '';
 
   @override
   void initState() {
     super.initState();
     _isEditing = widget.entryId != null;
 
+    // Listen to password changes for strength indicator
+    _passwordController.addListener(() {
+      setState(() {
+        _currentPassword = _passwordController.text;
+      });
+    });
+
     if (_isEditing) {
-      // Load existing entry data
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final passwordService = ref.read(passwordServiceProvider);
         final entry = passwordService.getPasswordById(widget.entryId!);
@@ -49,6 +59,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
             _platformController.text = entry.platformName;
             _usernameController.text = entry.username;
             _passwordController.text = entry.password;
+            _currentPassword = entry.password;
           });
         }
       });
@@ -72,7 +83,6 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
       final notifier = ref.read(passwordListProvider.notifier);
 
       if (_isEditing && _existingEntry != null) {
-        // Update existing entry
         final updatedEntry = PasswordEntry(
           id: _existingEntry!.id,
           platformName: _platformController.text.trim(),
@@ -83,7 +93,6 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
         );
         await notifier.updatePassword(updatedEntry);
       } else {
-        // Create new entry
         await notifier.addPassword(
           platformName: _platformController.text.trim(),
           username: _usernameController.text.trim(),
@@ -219,6 +228,9 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                     return null;
                   },
                 ),
+
+                // Password Strength Indicator
+                PasswordStrengthIndicator(password: _currentPassword),
 
                 const SizedBox(height: 32),
 

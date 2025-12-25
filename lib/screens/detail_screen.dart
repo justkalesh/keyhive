@@ -1,16 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../models/password_entry.dart';
+import '../utils/clipboard_helper.dart';
 
 /// DetailScreen - Display full password entry details.
 /// 
 /// Features:
 /// - Show all password details
-/// - Copy password to clipboard button
+/// - Copy password to clipboard with auto-clear (30s)
+/// - Password visibility timer (auto-hide after 30s)
 /// - Edit and Delete actions
-/// - Password visibility toggle
 class DetailScreen extends ConsumerStatefulWidget {
   final String entryId;
 
@@ -26,11 +28,18 @@ class DetailScreen extends ConsumerStatefulWidget {
 class _DetailScreenState extends ConsumerState<DetailScreen> {
   bool _obscurePassword = true;
   PasswordEntry? _entry;
+  Timer? _visibilityTimer;
 
   @override
   void initState() {
     super.initState();
     _loadEntry();
+  }
+
+  @override
+  void dispose() {
+    _visibilityTimer?.cancel();
+    super.dispose();
   }
 
   void _loadEntry() {
@@ -40,17 +49,55 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     });
   }
 
+  /// Toggle password visibility with auto-hide timer
+  void _togglePasswordVisibility() {
+    setState(() {
+      _obscurePassword = !_obscurePassword;
+    });
+
+    // Cancel existing timer
+    _visibilityTimer?.cancel();
+
+    // If showing password, start auto-hide timer (30 seconds)
+    if (!_obscurePassword) {
+      _visibilityTimer = Timer(const Duration(seconds: 30), () {
+        if (mounted) {
+          setState(() {
+            _obscurePassword = true;
+          });
+        }
+      });
+    }
+  }
+
   Future<void> _copyPassword() async {
     if (_entry == null) return;
 
-    await Clipboard.setData(ClipboardData(text: _entry!.password));
+    // Use auto-clear clipboard helper (clears after 30 seconds)
+    await ClipboardHelper.copyWithAutoClear(_entry!.password);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Password copied to clipboard'),
+          content: Text('Password copied (auto-clears in 30s)'),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _copyUsername() async {
+    if (_entry == null) return;
+
+    await Clipboard.setData(ClipboardData(text: _entry!.username));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Username copied'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 1),
         ),
       );
     }
@@ -100,7 +147,6 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Watch for updates to the password list
     ref.listen(passwordListProvider, (previous, next) {
       _loadEntry();
     });
@@ -144,7 +190,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: iconColor.withOpacity(0.15),
+                        color: iconColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Center(
@@ -184,25 +230,12 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                         icon: Icons.person_outline,
                         label: 'Username',
                         value: _entry!.username,
-                        onCopy: () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: _entry!.username),
-                          );
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Username copied'),
-                                behavior: SnackBarBehavior.floating,
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
-                          }
-                        },
+                        onCopy: _copyUsername,
                       ),
 
                       const Divider(height: 24),
 
-                      // Password
+                      // Password with visibility timer
                       _DetailRow(
                         icon: Icons.lock_outline,
                         label: 'Password',
@@ -212,20 +245,35 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                                color: isDark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
+                            // Visibility toggle with timer indicator
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                    color: isDark
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
+                                  ),
+                                  onPressed: _togglePasswordVisibility,
+                                ),
+                                // Show timer indicator when visible
+                                if (!_obscurePassword)
+                                  Positioned(
+                                    bottom: 8,
+                                    child: Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                             IconButton(
                               icon: Icon(
@@ -272,6 +320,17 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   onPressed: _copyPassword,
                   icon: const Icon(Icons.copy),
                   label: const Text('Copy Password'),
+                ),
+              ),
+
+              // Security info
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  'Password will auto-clear from clipboard in 30 seconds',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey,
+                  ),
                 ),
               ),
             ],
@@ -327,7 +386,7 @@ class _DetailRow extends StatelessWidget {
         Icon(
           icon,
           size: 20,
-          color: theme.colorScheme.primary.withOpacity(0.7),
+          color: theme.colorScheme.primary.withValues(alpha: 0.7),
         ),
         const SizedBox(width: 12),
         Expanded(

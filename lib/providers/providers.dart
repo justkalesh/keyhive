@@ -55,6 +55,21 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 /// Theme mode state - true = dark mode, false = light mode
 final isDarkModeProvider = StateProvider<bool>((ref) => true);
 
+// =============================================================================
+// SORT OPTIONS
+// =============================================================================
+
+/// Sort option enum
+enum SortOption {
+  nameAsc,
+  nameDesc,
+  dateNewest,
+  dateOldest,
+}
+
+/// Current sort option state
+final sortOptionProvider = StateProvider<SortOption>((ref) => SortOption.nameAsc);
+
 /// All passwords from the database (reactive)
 /// This provider is invalidated when passwords are added/updated/deleted
 final passwordListProvider = StateNotifierProvider<PasswordListNotifier, List<PasswordEntry>>((ref) {
@@ -62,19 +77,38 @@ final passwordListProvider = StateNotifierProvider<PasswordListNotifier, List<Pa
   return PasswordListNotifier(passwordService);
 });
 
-/// Filtered passwords based on search query
+/// Filtered and sorted passwords based on search query and sort option
 final filteredPasswordsProvider = Provider<List<PasswordEntry>>((ref) {
   final passwords = ref.watch(passwordListProvider);
   final query = ref.watch(searchQueryProvider);
+  final sortOption = ref.watch(sortOptionProvider);
   
-  if (query.isEmpty) {
-    return passwords;
+  // Filter by search query
+  List<PasswordEntry> filtered = passwords;
+  if (query.isNotEmpty) {
+    final lowerQuery = query.toLowerCase();
+    filtered = passwords.where((entry) =>
+        entry.platformName.toLowerCase().contains(lowerQuery) ||
+        entry.username.toLowerCase().contains(lowerQuery)).toList();
   }
   
-  final lowerQuery = query.toLowerCase();
-  return passwords.where((entry) =>
-      entry.platformName.toLowerCase().contains(lowerQuery) ||
-      entry.username.toLowerCase().contains(lowerQuery)).toList();
+  // Sort based on selected option
+  switch (sortOption) {
+    case SortOption.nameAsc:
+      filtered.sort((a, b) => a.platformName.toLowerCase().compareTo(b.platformName.toLowerCase()));
+      break;
+    case SortOption.nameDesc:
+      filtered.sort((a, b) => b.platformName.toLowerCase().compareTo(a.platformName.toLowerCase()));
+      break;
+    case SortOption.dateNewest:
+      filtered.sort((a, b) => b.dateModified.compareTo(a.dateModified));
+      break;
+    case SortOption.dateOldest:
+      filtered.sort((a, b) => a.dateModified.compareTo(b.dateModified));
+      break;
+  }
+  
+  return filtered;
 });
 
 /// StateNotifier for managing password list

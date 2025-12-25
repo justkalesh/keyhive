@@ -1,21 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
+import '../theme/app_theme.dart';
 
-/// LockScreen - Entry point requiring biometric authentication.
-/// 
-/// SECURITY FLOW:
-/// 1. Screen displays immediately on app launch
-/// 2. Biometric prompt triggers automatically on build
-/// 3. On SUCCESS: 
-///    - Retrieves encryption key from secure storage
-///    - Initializes encrypted Hive box
-///    - Navigates to Home screen
-/// 4. On FAILURE:
-///    - Shows "Retry" button
-///    - No data is loaded or accessible
-/// 
-/// CRITICAL: The Hive box is NEVER opened before successful authentication.
+/// LockScreen - Futuristic entry point with biometric authentication.
 class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({super.key});
 
@@ -23,20 +12,38 @@ class LockScreen extends ConsumerStatefulWidget {
   ConsumerState<LockScreen> createState() => _LockScreenState();
 }
 
-class _LockScreenState extends ConsumerState<LockScreen> {
+class _LockScreenState extends ConsumerState<LockScreen>
+    with SingleTickerProviderStateMixin {
   bool _isAuthenticating = false;
   String? _errorMessage;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
-    // Trigger authentication after the first frame is rendered
+    
+    // Setup pulse animation for logo
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+    
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _authenticate();
     });
   }
 
-  /// Initiates the biometric authentication process
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
   Future<void> _authenticate() async {
     if (_isAuthenticating) return;
 
@@ -50,38 +57,30 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       final encryptionService = ref.read(encryptionServiceProvider);
       final passwordService = ref.read(passwordServiceProvider);
 
-      // Step 1: Authenticate user with biometrics
       final authenticated = await authService.authenticateUser();
 
       if (!authenticated) {
         setState(() {
           _isAuthenticating = false;
-          _errorMessage = 'Authentication failed. Please try again.';
+          _errorMessage = 'Authentication failed. Try again.';
         });
         return;
       }
 
-      // Step 2: Get or generate encryption key
       final encryptionKey = await encryptionService.initializeKey();
-
-      // Step 3: Initialize the encrypted password box
       await passwordService.initialize(encryptionKey);
 
-      // Step 4: Update authentication state
       ref.read(isAuthenticatedProvider.notifier).state = true;
       ref.read(encryptionKeyProvider.notifier).state = encryptionKey;
-
-      // Step 5: Load passwords
       ref.read(passwordListProvider.notifier).loadPasswords();
 
-      // Step 6: Navigate to home screen
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/home');
       }
     } catch (e) {
       setState(() {
         _isAuthenticating = false;
-        _errorMessage = 'An error occurred. Please try again.';
+        _errorMessage = 'Something went wrong. Try again.';
       });
     }
   }
@@ -89,125 +88,203 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // App Icon
-                Container(
-                  width: 120,
-                  height: 120,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              theme.scaffoldBackgroundColor,
+              theme.colorScheme.primary.withValues(alpha: 0.1),
+              theme.scaffoldBackgroundColor,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Spacer(),
+              
+              // Animated Logo with glow effect
+              ScaleTransition(
+                scale: _pulseAnimation,
+                child: Container(
+                  width: 140,
+                  height: 140,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primary,
-                        theme.colorScheme.secondary,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(35),
                     boxShadow: [
                       BoxShadow(
-                        color: theme.colorScheme.primary.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                        blurRadius: 40,
+                        spreadRadius: 5,
+                      ),
+                      BoxShadow(
+                        color: theme.colorScheme.secondary.withValues(alpha: 0.2),
+                        blurRadius: 60,
+                        spreadRadius: 10,
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.lock_outline,
-                    size: 60,
-                    color: Colors.white,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(35),
+                    child: Image.asset(
+                      'assets/icon.png',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-                
-                const SizedBox(height: 32),
-                
-                // App Name
-                Text(
+              ),
+              
+              const SizedBox(height: 40),
+              
+              // App Name with gradient
+              ShaderMask(
+                shaderCallback: (bounds) => AppTheme.primaryGradient.createShader(bounds),
+                child: Text(
                   'KeyHive',
-                  style: theme.textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.primary,
+                  style: theme.textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -1,
                   ),
                 ),
-                
-                const SizedBox(height: 8),
-                
-                Text(
-                  'Secure Password Manager',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+              
+              const SizedBox(height: 8),
+              
+              Text(
+                'Secure Password Manager',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: Colors.grey[500],
+                  letterSpacing: 1,
+                ),
+              ),
+              
+              const Spacer(),
+              
+              // Status Section
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 32),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
                   ),
                 ),
-                
-                const SizedBox(height: 48),
-                
-                // Status / Error Message
-                if (_isAuthenticating) ...[
-                  CircularProgressIndicator(
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Authenticating...',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                ] else if (_errorMessage != null) ...[
-                  Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: theme.colorScheme.error,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.error,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: _authenticate,
-                    icon: const Icon(Icons.fingerprint),
-                    label: const Text('Retry Authentication'),
-                  ),
-                ] else ...[
-                  // Initial state - show unlock prompt
-                  Icon(
-                    Icons.fingerprint,
-                    size: 64,
-                    color: theme.colorScheme.primary.withOpacity(0.7),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Use biometrics to unlock',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: _authenticate,
-                    icon: const Icon(Icons.lock_open),
-                    label: const Text('Unlock'),
-                  ),
-                ],
-              ],
-            ),
+                child: _isAuthenticating
+                    ? _buildAuthenticating(theme)
+                    : _errorMessage != null
+                        ? _buildError(theme)
+                        : _buildIdle(theme),
+              ),
+              
+              const SizedBox(height: 60),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAuthenticating(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Authenticating...',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: Colors.grey[400],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildError(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.error.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.error_outline_rounded,
+            size: 32,
+            color: theme.colorScheme.error,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          _errorMessage!,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _authenticate,
+            icon: const Icon(Icons.fingerprint, size: 22),
+            label: const Text('Try Again'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIdle(ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ShaderMask(
+          shaderCallback: (bounds) => AppTheme.neonGradient.createShader(bounds),
+          child: const Icon(
+            Icons.fingerprint,
+            size: 64,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Use biometrics to unlock',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: Colors.grey[400],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _authenticate,
+            icon: const Icon(Icons.lock_open_rounded, size: 20),
+            label: const Text('Unlock'),
+          ),
+        ),
+      ],
     );
   }
 }
