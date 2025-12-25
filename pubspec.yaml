@@ -1,0 +1,44 @@
+name: keyhive
+description: "A secure, offline-first Password Manager app"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  
+  # State Management - Riverpod for clean architecture
+  flutter_riverpod: ^2.4.9
+  
+  # Local Database - Hive with Flutter support
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Secure Storage - For storing encryption key
+  flutter_secure_storage: ^9.0.0
+  
+  # Biometric Authentication
+  local_auth: ^2.1.8
+  
+  # File paths for Hive initialization
+  path_provider: ^2.1.1
+  
+  # UUID generation for password entries
+  uuid: ^4.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  
+  # Hive code generation
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.7
+
+flutter:
+  uses-material-design: true
