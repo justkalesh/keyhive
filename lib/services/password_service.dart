@@ -51,6 +51,8 @@ class PasswordService {
     required String platformName,
     required String username,
     required String password,
+    String? websiteUrl,
+    String? notes,
   }) async {
     _ensureInitialized();
 
@@ -62,6 +64,8 @@ class PasswordService {
       password: password,
       dateCreated: now,
       dateModified: now,
+      websiteUrl: websiteUrl,
+      notes: notes,
     );
 
     await _box!.put(entry.id, entry);
@@ -79,6 +83,8 @@ class PasswordService {
       password: entry.password,
       dateCreated: entry.dateCreated,
       dateModified: DateTime.now(),
+      websiteUrl: entry.websiteUrl,
+      notes: entry.notes,
     );
     
     await _box!.put(entry.id, updatedEntry);

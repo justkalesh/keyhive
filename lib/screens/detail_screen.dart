@@ -323,6 +323,26 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                         label: 'Last Modified',
                         value: _formatDate(_entry!.dateModified),
                       ),
+
+                      // Website URL (if present)
+                      if (_entry!.websiteUrl != null && _entry!.websiteUrl!.isNotEmpty) ...[
+                        const Divider(height: 24),
+                        _DetailRow(
+                          icon: Icons.link,
+                          label: 'Website',
+                          value: _entry!.websiteUrl!,
+                        ),
+                      ],
+
+                      // Notes (if present)
+                      if (_entry!.notes != null && _entry!.notes!.isNotEmpty) ...[
+                        const Divider(height: 24),
+                        _DetailRow(
+                          icon: Icons.note_outlined,
+                          label: 'Notes',
+                          value: _entry!.notes!,
+                        ),
+                      ],
                     ],
                   ),
                 ),

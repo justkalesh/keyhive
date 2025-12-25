@@ -33,6 +33,14 @@ class PasswordEntry extends HiveObject {
   @HiveField(5)
   DateTime dateModified;
 
+  /// Website URL (optional)
+  @HiveField(6)
+  String? websiteUrl;
+
+  /// Additional notes (optional)
+  @HiveField(7)
+  String? notes;
+
   PasswordEntry({
     required this.id,
     required this.platformName,
@@ -40,6 +48,8 @@ class PasswordEntry extends HiveObject {
     required this.password,
     required this.dateCreated,
     required this.dateModified,
+    this.websiteUrl,
+    this.notes,
   });
 
   /// Creates a copy with updated fields (immutable update pattern)
@@ -47,6 +57,8 @@ class PasswordEntry extends HiveObject {
     String? platformName,
     String? username,
     String? password,
+    String? websiteUrl,
+    String? notes,
   }) {
     return PasswordEntry(
       id: id,
@@ -55,6 +67,8 @@ class PasswordEntry extends HiveObject {
       password: password ?? this.password,
       dateCreated: dateCreated,
       dateModified: DateTime.now(),
+      websiteUrl: websiteUrl ?? this.websiteUrl,
+      notes: notes ?? this.notes,
     );
   }
 }

@@ -150,11 +150,15 @@ class PasswordListNotifier extends StateNotifier<List<PasswordEntry>> {
     required String platformName,
     required String username,
     required String password,
+    String? websiteUrl,
+    String? notes,
   }) async {
     final entry = await _passwordService.addPassword(
       platformName: platformName,
       username: username,
       password: password,
+      websiteUrl: websiteUrl,
+      notes: notes,
     );
     state = _passwordService.getAllPasswords();
     return entry;

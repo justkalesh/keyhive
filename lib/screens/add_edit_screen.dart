@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../models/password_entry.dart';
 import '../utils/password_strength.dart';
+import '../utils/password_generator.dart';
 
 /// AddEditScreen - Create or edit password entries.
 /// 
 /// Features:
-/// - TextFields for Platform, Username, Password
+/// - TextFields for Platform, Username, Password, Website, Notes
 /// - Password visibility toggle
+/// - Password generator button
 /// - Password strength indicator
 /// - Validation logic
 /// - Save/Update functionality
@@ -30,6 +32,8 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
   final _platformController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _websiteController = TextEditingController();
+  final _notesController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -59,6 +63,8 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
             _platformController.text = entry.platformName;
             _usernameController.text = entry.username;
             _passwordController.text = entry.password;
+            _websiteController.text = entry.websiteUrl ?? '';
+            _notesController.text = entry.notes ?? '';
             _currentPassword = entry.password;
           });
         }
@@ -71,7 +77,30 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
     _platformController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _websiteController.dispose();
+    _notesController.dispose();
     super.dispose();
+  }
+
+  void _generatePassword() {
+    final generated = PasswordGenerator.generate(length: 16);
+    _passwordController.text = generated;
+    setState(() {
+      _obscurePassword = false; // Show the generated password
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+            SizedBox(width: 12),
+            Text('Strong password generated!'),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _savePassword() async {
@@ -90,6 +119,12 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
           password: _passwordController.text,
           dateCreated: _existingEntry!.dateCreated,
           dateModified: DateTime.now(),
+          websiteUrl: _websiteController.text.trim().isEmpty 
+              ? null 
+              : _websiteController.text.trim(),
+          notes: _notesController.text.trim().isEmpty 
+              ? null 
+              : _notesController.text.trim(),
         );
         await notifier.updatePassword(updatedEntry);
       } else {
@@ -97,6 +132,12 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
           platformName: _platformController.text.trim(),
           username: _usernameController.text.trim(),
           password: _passwordController.text,
+          websiteUrl: _websiteController.text.trim().isEmpty 
+              ? null 
+              : _websiteController.text.trim(),
+          notes: _notesController.text.trim().isEmpty 
+              ? null 
+              : _notesController.text.trim(),
         );
       }
 
@@ -199,7 +240,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
 
                 const SizedBox(height: 24),
 
-                // Password Field
+                // Password Field with Generator
                 _buildSectionLabel('Password', theme),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -208,17 +249,32 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                   decoration: InputDecoration(
                     hintText: 'Enter password',
                     prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Generate button
+                        IconButton(
+                          icon: Icon(
+                            Icons.auto_awesome,
+                            color: theme.colorScheme.primary,
+                          ),
+                          tooltip: 'Generate password',
+                          onPressed: _generatePassword,
+                        ),
+                        // Visibility toggle
+                        IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ),
                   validator: (value) {
@@ -231,6 +287,38 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
 
                 // Password Strength Indicator
                 PasswordStrengthIndicator(password: _currentPassword),
+
+                const SizedBox(height: 24),
+
+                // Website URL Field (Optional)
+                _buildSectionLabel('Website URL', theme, optional: true),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _websiteController,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g., https://netflix.com',
+                    prefixIcon: Icon(Icons.link),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Notes Field (Optional)
+                _buildSectionLabel('Notes', theme, optional: true),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _notesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: 'Additional notes (security questions, etc.)',
+                    prefixIcon: Padding(
+                      padding: EdgeInsets.only(bottom: 48),
+                      child: Icon(Icons.note_outlined),
+                    ),
+                    alignLabelWithHint: true,
+                  ),
+                ),
 
                 const SizedBox(height: 32),
 
@@ -259,13 +347,24 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
     );
   }
 
-  Widget _buildSectionLabel(String label, ThemeData theme) {
-    return Text(
-      label,
-      style: theme.textTheme.labelLarge?.copyWith(
-        fontWeight: FontWeight.w600,
-        color: theme.colorScheme.primary,
-      ),
+  Widget _buildSectionLabel(String label, ThemeData theme, {bool optional = false}) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        if (optional)
+          Text(
+            ' (optional)',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: Colors.grey[500],
+            ),
+          ),
+      ],
     );
   }
 }
