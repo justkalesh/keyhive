@@ -74,6 +74,9 @@ final passwordAutoHideProvider = StateProvider<bool>((ref) => true);
 /// Password visibility duration in seconds (default: 30)
 final passwordVisibilityDurationProvider = StateProvider<int>((ref) => 30);
 
+/// Import conflict resolution mode: true = auto (keep recent), false = manual (show dialog)
+final importAutoResolveProvider = StateProvider<bool>((ref) => false);
+
 // =============================================================================
 // SORT OPTIONS
 // =============================================================================

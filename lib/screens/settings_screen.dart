@@ -1,9 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:file_picker/file_picker.dart';
 import '../providers/providers.dart';
+import '../services/backup_service.dart';
+import '../models/password_entry.dart';
 
 /// SettingsScreen - App settings and preferences
 class SettingsScreen extends ConsumerWidget {
@@ -21,6 +25,7 @@ class SettingsScreen extends ConsumerWidget {
     final lockOnMinimize = ref.watch(lockOnMinimizeProvider);
     final passwordAutoHide = ref.watch(passwordAutoHideProvider);
     final passwordVisibilityDuration = ref.watch(passwordVisibilityDurationProvider);
+    final importAutoResolve = ref.watch(importAutoResolveProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -178,6 +183,348 @@ class SettingsScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Data & Backup Section
+          _buildSectionHeader('Data & Backup', theme),
+          const SizedBox(height: 8),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Auto-resolve Conflicts'),
+                  subtitle: Text(
+                    importAutoResolve 
+                        ? 'Keeps most recent password automatically'
+                        : 'Ask for each conflicting password',
+                  ),
+                  secondary: Icon(
+                    importAutoResolve ? Icons.auto_mode_rounded : Icons.touch_app_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                  value: importAutoResolve,
+                  onChanged: (value) {
+                    ref.read(importAutoResolveProvider.notifier).state = value;
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(Icons.backup_rounded, color: theme.colorScheme.primary),
+                  title: const Text('Export Encrypted Backup'),
+                  subtitle: const Text('Save passwords as encrypted file'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () async {
+                    final passwords = ref.read(passwordListProvider);
+                    if (passwords.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('No passwords to backup'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+                    
+                    // Create backup file first
+                    final encryptionService = ref.read(encryptionServiceProvider);
+                    final backupService = BackupService(encryptionService);
+                    final filePath = await backupService.exportBackup(passwords);
+                    
+                    if (filePath == null) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Failed to create backup'),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                    
+                    // Get file info
+                    final file = File(filePath);
+                    final fileSize = await file.length();
+                    final fileName = filePath.split('/').last.split('\\').last;
+                    final fileSizeStr = fileSize > 1024 
+                        ? '${(fileSize / 1024).toStringAsFixed(1)} KB'
+                        : '$fileSize bytes';
+                    
+                    // Show dialog with options
+                    if (context.mounted) {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Backup Ready'),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.insert_drive_file_rounded, 
+                                       color: theme.colorScheme.primary, size: 40),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          fileName,
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          fileSizeStr,
+                                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '${passwords.length} passwords encrypted',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                // Save directly to Downloads folder
+                                try {
+                                  final downloadsDir = Directory('/storage/emulated/0/Download');
+                                  if (await downloadsDir.exists()) {
+                                    final destPath = '${downloadsDir.path}/$fileName';
+                                    await file.copy(destPath);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Saved to Downloads: $fileName'),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  } else {
+                                    // Fallback: use share
+                                    await backupService.shareBackup(passwords);
+                                  }
+                                } catch (e) {
+                                  await backupService.shareBackup(passwords);
+                                }
+                              },
+                              icon: const Icon(Icons.download_rounded),
+                              label: const Text('Download'),
+                            ),
+                            FilledButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                await backupService.shareBackup(passwords);
+                              },
+                              icon: const Icon(Icons.share_rounded),
+                              label: const Text('Share'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+              leading: Icon(Icons.restore_rounded, color: theme.colorScheme.primary),
+              title: const Text('Import Backup'),
+              subtitle: const Text('Restore from encrypted backup file'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () async {
+                // Pick file
+                final result = await FilePicker.platform.pickFiles(
+                  type: FileType.any,
+                  allowMultiple: false,
+                );
+                
+                if (result == null || result.files.isEmpty) {
+                  return;
+                }
+                
+                final filePath = result.files.first.path;
+                if (filePath == null) {
+                  return;
+                }
+                
+                // Show loading
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          ),
+                          SizedBox(width: 16),
+                          Text('Importing backup...'),
+                        ],
+                      ),
+                      duration: Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+                
+                // Import backup
+                final encryptionService = ref.read(encryptionServiceProvider);
+                final backupService = BackupService(encryptionService);
+                final entries = await backupService.importBackup(filePath);
+                
+                if (entries != null && entries.isNotEmpty && context.mounted) {
+                  // Get existing passwords
+                  final existingPasswords = ref.read(passwordListProvider);
+                  final passwordNotifier = ref.read(passwordListProvider.notifier);
+                  final passwordService = ref.read(passwordServiceProvider);
+                  
+                  // Find all conflicts first
+                  final conflicts = <({PasswordEntry existing, PasswordEntry backup})>[];
+                  final newEntries = <PasswordEntry>[];
+                  
+                  for (final entry in entries) {
+                    final existing = existingPasswords.cast<PasswordEntry?>().firstWhere(
+                      (e) => e?.platformName.toLowerCase() == entry.platformName.toLowerCase() 
+                          && e?.username.toLowerCase() == entry.username.toLowerCase(),
+                      orElse: () => null,
+                    );
+                    
+                    if (existing != null) {
+                      conflicts.add((existing: existing, backup: entry));
+                    } else {
+                      newEntries.add(entry);
+                    }
+                  }
+                  
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  
+                  int importedCount = 0;
+                  int updatedCount = 0;
+                  int skippedCount = 0;
+                  
+                  // Handle conflicts
+                  if (conflicts.isNotEmpty && context.mounted) {
+                    final autoResolve = ref.read(importAutoResolveProvider);
+                    
+                    if (autoResolve) {
+                      // Auto-resolve: keep most recent password
+                      for (final conflict in conflicts) {
+                        if (conflict.backup.dateModified.isAfter(conflict.existing.dateModified)) {
+                          // Backup is newer - update
+                          final updatedEntry = PasswordEntry(
+                            id: conflict.existing.id,
+                            platformName: conflict.backup.platformName,
+                            username: conflict.backup.username,
+                            password: conflict.backup.password,
+                            dateCreated: conflict.existing.dateCreated,
+                            dateModified: conflict.backup.dateModified,
+                            websiteUrl: conflict.backup.websiteUrl,
+                            notes: conflict.backup.notes,
+                            category: conflict.backup.category,
+                            isFavorite: conflict.backup.isFavorite,
+                          );
+                          await passwordService.updatePassword(updatedEntry);
+                          updatedCount++;
+                        } else {
+                          // Existing is newer or same - skip
+                          skippedCount++;
+                        }
+                      }
+                    } else {
+                      // Manual: show dialog for each conflict
+                      final result = await showDialog<Map<String, String>>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => _ConflictResolutionDialog(conflicts: conflicts),
+                      );
+                      
+                      if (result != null) {
+                        for (final conflict in conflicts) {
+                          final action = result[conflict.existing.id] ?? 'skip';
+                          
+                          if (action == 'backup') {
+                            // Use backup password
+                            final updatedEntry = PasswordEntry(
+                              id: conflict.existing.id,
+                              platformName: conflict.backup.platformName,
+                              username: conflict.backup.username,
+                              password: conflict.backup.password,
+                              dateCreated: conflict.existing.dateCreated,
+                              dateModified: conflict.backup.dateModified,
+                              websiteUrl: conflict.backup.websiteUrl,
+                              notes: conflict.backup.notes,
+                              category: conflict.backup.category,
+                              isFavorite: conflict.backup.isFavorite,
+                            );
+                            await passwordService.updatePassword(updatedEntry);
+                            updatedCount++;
+                          } else {
+                            // Keep existing (skip)
+                            skippedCount++;
+                          }
+                        }
+                      } else {
+                        // User cancelled
+                        skippedCount = conflicts.length;
+                      }
+                    }
+                  }
+                  
+                  // Add new entries (no conflicts)
+                  for (final entry in newEntries) {
+                    await passwordNotifier.addPassword(
+                      platformName: entry.platformName,
+                      username: entry.username,
+                      password: entry.password,
+                      websiteUrl: entry.websiteUrl,
+                      notes: entry.notes,
+                      category: entry.category,
+                    );
+                    importedCount++;
+                  }
+                  
+                  // Refresh the list
+                  passwordNotifier.loadPasswords();
+                  
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Import complete: $importedCount new, $updatedCount updated, $skippedCount unchanged',
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 4),
+                      ),
+                    );
+                  }
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to import backup. Invalid file or wrong key.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+            ),
               ],
             ),
           ),
@@ -414,6 +761,113 @@ class _LinkTile extends StatelessWidget {
           }
         }
       },
+    );
+  }
+}
+
+/// Dialog for resolving import conflicts
+class _ConflictResolutionDialog extends StatefulWidget {
+  final List<({PasswordEntry existing, PasswordEntry backup})> conflicts;
+
+  const _ConflictResolutionDialog({required this.conflicts});
+
+  @override
+  State<_ConflictResolutionDialog> createState() => _ConflictResolutionDialogState();
+}
+
+class _ConflictResolutionDialogState extends State<_ConflictResolutionDialog> {
+  late Map<String, String> _decisions;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to keeping existing (skip)
+    _decisions = {
+      for (final c in widget.conflicts) c.existing.id: 'skip'
+    };
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.orange[700]),
+          const SizedBox(width: 8),
+          Text('${widget.conflicts.length} Conflict${widget.conflicts.length > 1 ? 's' : ''} Found'),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: widget.conflicts.length,
+          separatorBuilder: (_, __) => const Divider(height: 24),
+          itemBuilder: (context, index) {
+            final conflict = widget.conflicts[index];
+            final existing = conflict.existing;
+            final backup = conflict.backup;
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Platform name header
+                Text(
+                  '${existing.platformName} (${existing.username})',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                // Keep Existing option
+                RadioListTile<String>(
+                  value: 'skip',
+                  groupValue: _decisions[existing.id],
+                  onChanged: (v) => setState(() => _decisions[existing.id] = v!),
+                  title: const Text('Keep Existing'),
+                  subtitle: Text(
+                    'Modified: ${_formatDate(existing.dateModified)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                
+                // Use Backup option
+                RadioListTile<String>(
+                  value: 'backup',
+                  groupValue: _decisions[existing.id],
+                  onChanged: (v) => setState(() => _decisions[existing.id] = v!),
+                  title: const Text('Use Backup'),
+                  subtitle: Text(
+                    'Modified: ${_formatDate(backup.dateModified)}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('Cancel Import'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _decisions),
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 }

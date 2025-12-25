@@ -204,26 +204,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
               Center(
                 child: Column(
                   children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: iconColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _entry!.platformName.isNotEmpty
-                              ? _entry!.platformName[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: iconColor,
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
+                    _buildPlatformIcon(iconColor),
                     const SizedBox(height: 16),
                     Text(
                       _entry!.platformName,
@@ -429,6 +410,120 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     ];
     final hash = platformName.toLowerCase().hashCode.abs();
     return colors[hash % colors.length];
+  }
+
+  // Map of common platform names to their domains
+  static const Map<String, String> _platformDomains = {
+    'google': 'google.com',
+    'gmail': 'gmail.com',
+    'facebook': 'facebook.com',
+    'instagram': 'instagram.com',
+    'twitter': 'twitter.com',
+    'x': 'x.com',
+    'linkedin': 'linkedin.com',
+    'netflix': 'netflix.com',
+    'amazon': 'amazon.com',
+    'spotify': 'spotify.com',
+    'youtube': 'youtube.com',
+    'github': 'github.com',
+    'discord': 'discord.com',
+    'reddit': 'reddit.com',
+    'apple': 'apple.com',
+    'microsoft': 'microsoft.com',
+    'paypal': 'paypal.com',
+    'snapchat': 'snapchat.com',
+    'tiktok': 'tiktok.com',
+    'whatsapp': 'whatsapp.com',
+    'telegram': 'telegram.org',
+    'slack': 'slack.com',
+    'zoom': 'zoom.us',
+    'flipkart': 'flipkart.com',
+    'swiggy': 'swiggy.com',
+    'zomato': 'zomato.com',
+    'paytm': 'paytm.com',
+  };
+
+  Widget _buildPlatformIcon(Color accentColor) {
+    String? domain;
+
+    // First try websiteUrl
+    if (_entry!.websiteUrl != null && _entry!.websiteUrl!.isNotEmpty) {
+      domain = _entry!.websiteUrl!;
+      if (domain.startsWith('http://') || domain.startsWith('https://')) {
+        try {
+          domain = Uri.parse(domain).host;
+        } catch (_) {}
+      }
+    }
+
+    // If no websiteUrl, try platform name mapping
+    if (domain == null || domain.isEmpty) {
+      final platformLower = _entry!.platformName.toLowerCase().trim();
+      domain = _platformDomains[platformLower];
+
+      // Also check if platform name contains a known name
+      if (domain == null) {
+        for (final platform in _platformDomains.keys) {
+          if (platformLower.contains(platform)) {
+            domain = _platformDomains[platform];
+            break;
+          }
+        }
+      }
+    }
+
+    // If we have a domain, try to load favicon
+    if (domain != null && domain.isNotEmpty) {
+      return Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: accentColor.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Image.network(
+            'https://www.google.com/s2/favicons?domain=$domain&sz=128',
+            width: 80,
+            height: 80,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildFallbackIcon(accentColor);
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _buildFallbackIcon(accentColor);
+            },
+          ),
+        ),
+      );
+    }
+
+    return _buildFallbackIcon(accentColor);
+  }
+
+  Widget _buildFallbackIcon(Color accentColor) {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Center(
+        child: Text(
+          _entry!.platformName.isNotEmpty
+              ? _entry!.platformName[0].toUpperCase()
+              : '?',
+          style: TextStyle(
+            color: accentColor,
+            fontSize: 36,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
   }
 }
 

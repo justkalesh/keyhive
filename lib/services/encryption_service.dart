@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:encrypt/encrypt.dart' as enc;
 
 /// EncryptionService - Manages the secure encryption key for Hive database.
 /// 
@@ -17,6 +18,9 @@ class EncryptionService {
   static const String _keyStorageKey = 'keyhive_encryption_key';
   
   final FlutterSecureStorage _secureStorage;
+  
+  /// Cached encryption key for encrypt/decrypt operations
+  enc.Key? _cachedKey;
   
   EncryptionService({FlutterSecureStorage? secureStorage})
       : _secureStorage = secureStorage ?? const FlutterSecureStorage(
@@ -63,39 +67,67 @@ class EncryptionService {
     final existingKey = await getKey();
     
     if (existingKey != null) {
+      // Cache the key for encrypt/decrypt operations
+      _cachedKey = enc.Key(existingKey);
       return existingKey;
     }
     
     // First launch: Generate a new secure key
     final newKey = generateEncryptionKey();
     await storeKey(newKey);
+    
+    // Cache the key for encrypt/decrypt operations
+    _cachedKey = enc.Key(newKey);
     return newKey;
   }
 
-  /// Encrypt a string using simple XOR with the stored key
-  /// This is for backup file encryption (basic obfuscation)
+  /// Encrypts a string using AES-256-CBC with a random IV.
+  /// Returns format: 'iv_base64:ciphertext_base64'
   String encryptString(String plainText) {
-    // Simple base64 encoding for backup (key-based encryption would need extra setup)
-    // In production, use proper AES encryption
-    final bytes = plainText.codeUnits;
-    final xorKey = _keyStorageKey.codeUnits;
-    final encrypted = List<int>.generate(
-      bytes.length,
-      (i) => bytes[i] ^ xorKey[i % xorKey.length],
-    );
-    return base64Encode(encrypted);
+    if (_cachedKey == null) {
+      throw StateError('Encryption key not initialized. Call initializeKey() first.');
+    }
+    
+    // Generate a random IV for each encryption (16 bytes for AES)
+    final iv = enc.IV.fromSecureRandom(16);
+    
+    // Create AES encrypter with CBC mode
+    final encrypter = enc.Encrypter(enc.AES(_cachedKey!, mode: enc.AESMode.cbc));
+    
+    // Encrypt the plaintext
+    final encrypted = encrypter.encrypt(plainText, iv: iv);
+    
+    // Return in format: iv_base64:ciphertext_base64
+    return '${iv.base64}:${encrypted.base64}';
   }
 
-  /// Decrypt a string
+  /// Decrypts a string encrypted with encryptString.
+  /// Input format: 'iv_base64:ciphertext_base64'
+  /// Returns null if decryption fails.
   String? decryptString(String encryptedText) {
+    if (_cachedKey == null) {
+      return null;
+    }
+    
     try {
-      final xorKey = _keyStorageKey.codeUnits;
-      final decoded = base64Decode(encryptedText);
-      final decrypted = List<int>.generate(
-        decoded.length,
-        (i) => decoded[i] ^ xorKey[i % xorKey.length],
-      );
-      return String.fromCharCodes(decrypted);
+      // Split the input to get IV and ciphertext
+      final parts = encryptedText.split(':');
+      if (parts.length != 2) {
+        return null;
+      }
+      
+      final ivBase64 = parts[0];
+      final ciphertextBase64 = parts[1];
+      
+      // Decode IV and ciphertext
+      final iv = enc.IV.fromBase64(ivBase64);
+      final encrypted = enc.Encrypted.fromBase64(ciphertextBase64);
+      
+      // Create AES decrypter with CBC mode
+      final encrypter = enc.Encrypter(enc.AES(_cachedKey!, mode: enc.AESMode.cbc));
+      
+      // Decrypt and return
+      return encrypter.decrypt(encrypted, iv: iv);
     } catch (e) {
       return null;
     }

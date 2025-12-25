@@ -48,6 +48,7 @@ class KeyHiveApp extends ConsumerStatefulWidget {
 
 class _KeyHiveAppState extends ConsumerState<KeyHiveApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  DateTime? _pausedTime;
 
   @override
   void initState() {
@@ -65,16 +66,28 @@ class _KeyHiveAppState extends ConsumerState<KeyHiveApp> with WidgetsBindingObse
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     
+    // Track when app is paused
+    if (state == AppLifecycleState.paused) {
+      _pausedTime = DateTime.now();
+    }
+    
     // Lock app when resumed from background (if setting enabled)
+    // Only lock if paused for more than 5 seconds (to avoid share dialogs triggering lock)
     if (state == AppLifecycleState.resumed) {
       final lockOnMinimize = ref.read(lockOnMinimizeProvider);
       final isAuthenticated = ref.read(isAuthenticatedProvider);
       
-      if (lockOnMinimize && isAuthenticated) {
+      final pausedDuration = _pausedTime != null 
+          ? DateTime.now().difference(_pausedTime!).inSeconds 
+          : 0;
+      
+      if (lockOnMinimize && isAuthenticated && pausedDuration >= 5) {
         // Reset authentication state and navigate to lock screen
         ref.read(isAuthenticatedProvider.notifier).state = false;
         _navigatorKey.currentState?.pushNamedAndRemoveUntil('/lock', (route) => false);
       }
+      
+      _pausedTime = null;
     }
   }
 
