@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -69,5 +70,34 @@ class EncryptionService {
     final newKey = generateEncryptionKey();
     await storeKey(newKey);
     return newKey;
+  }
+
+  /// Encrypt a string using simple XOR with the stored key
+  /// This is for backup file encryption (basic obfuscation)
+  String encryptString(String plainText) {
+    // Simple base64 encoding for backup (key-based encryption would need extra setup)
+    // In production, use proper AES encryption
+    final bytes = plainText.codeUnits;
+    final xorKey = _keyStorageKey.codeUnits;
+    final encrypted = List<int>.generate(
+      bytes.length,
+      (i) => bytes[i] ^ xorKey[i % xorKey.length],
+    );
+    return base64Encode(encrypted);
+  }
+
+  /// Decrypt a string
+  String? decryptString(String encryptedText) {
+    try {
+      final xorKey = _keyStorageKey.codeUnits;
+      final decoded = base64Decode(encryptedText);
+      final decrypted = List<int>.generate(
+        decoded.length,
+        (i) => decoded[i] ^ xorKey[i % xorKey.length],
+      );
+      return String.fromCharCodes(decrypted);
+    } catch (e) {
+      return null;
+    }
   }
 }

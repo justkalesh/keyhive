@@ -109,6 +109,9 @@ final filteredPasswordsProvider = Provider<List<PasswordEntry>>((ref) {
     filtered = passwords.where((entry) =>
         entry.platformName.toLowerCase().contains(lowerQuery) ||
         entry.username.toLowerCase().contains(lowerQuery)).toList();
+  } else {
+    // Create a copy so sorting doesn't mutate the original list
+    filtered = List<PasswordEntry>.from(passwords);
   }
   
   // Sort based on selected option
@@ -152,6 +155,8 @@ class PasswordListNotifier extends StateNotifier<List<PasswordEntry>> {
     required String password,
     String? websiteUrl,
     String? notes,
+    String category = 'General',
+    bool isFavorite = false,
   }) async {
     final entry = await _passwordService.addPassword(
       platformName: platformName,
@@ -159,6 +164,8 @@ class PasswordListNotifier extends StateNotifier<List<PasswordEntry>> {
       password: password,
       websiteUrl: websiteUrl,
       notes: notes,
+      category: category,
+      isFavorite: isFavorite,
     );
     state = _passwordService.getAllPasswords();
     return entry;
@@ -167,6 +174,12 @@ class PasswordListNotifier extends StateNotifier<List<PasswordEntry>> {
   /// Updates a password and refreshes state
   Future<void> updatePassword(PasswordEntry entry) async {
     await _passwordService.updatePassword(entry);
+    state = _passwordService.getAllPasswords();
+  }
+
+  /// Toggle favorite status
+  Future<void> toggleFavorite(String id) async {
+    await _passwordService.toggleFavorite(id);
     state = _passwordService.getAllPasswords();
   }
 

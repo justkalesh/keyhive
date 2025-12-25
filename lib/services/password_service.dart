@@ -53,6 +53,8 @@ class PasswordService {
     required String password,
     String? websiteUrl,
     String? notes,
+    String category = 'General',
+    bool isFavorite = false,
   }) async {
     _ensureInitialized();
 
@@ -66,6 +68,8 @@ class PasswordService {
       dateModified: now,
       websiteUrl: websiteUrl,
       notes: notes,
+      category: category,
+      isFavorite: isFavorite,
     );
 
     await _box!.put(entry.id, entry);
@@ -85,9 +89,32 @@ class PasswordService {
       dateModified: DateTime.now(),
       websiteUrl: entry.websiteUrl,
       notes: entry.notes,
+      category: entry.category,
+      isFavorite: entry.isFavorite,
     );
     
     await _box!.put(entry.id, updatedEntry);
+  }
+
+  /// Toggle favorite status
+  Future<void> toggleFavorite(String id) async {
+    _ensureInitialized();
+    final entry = _box!.get(id);
+    if (entry != null) {
+      final updated = PasswordEntry(
+        id: entry.id,
+        platformName: entry.platformName,
+        username: entry.username,
+        password: entry.password,
+        dateCreated: entry.dateCreated,
+        dateModified: entry.dateModified,
+        websiteUrl: entry.websiteUrl,
+        notes: entry.notes,
+        category: entry.category,
+        isFavorite: !entry.isFavorite,
+      );
+      await _box!.put(id, updated);
+    }
   }
 
   /// Deletes a password entry by ID.

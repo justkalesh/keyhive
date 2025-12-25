@@ -25,13 +25,16 @@ class PasswordEntryAdapter extends TypeAdapter<PasswordEntry> {
       dateModified: fields[5] as DateTime,
       websiteUrl: fields[6] as String?,
       notes: fields[7] as String?,
+      // Handle missing fields for backward compatibility
+      category: (fields[8] as String?) ?? 'General',
+      isFavorite: (fields[9] as bool?) ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, PasswordEntry obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -47,7 +50,11 @@ class PasswordEntryAdapter extends TypeAdapter<PasswordEntry> {
       ..writeByte(6)
       ..write(obj.websiteUrl)
       ..writeByte(7)
-      ..write(obj.notes);
+      ..write(obj.notes)
+      ..writeByte(8)
+      ..write(obj.category)
+      ..writeByte(9)
+      ..write(obj.isFavorite);
   }
 
   @override

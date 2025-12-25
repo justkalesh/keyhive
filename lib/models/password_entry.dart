@@ -41,6 +41,14 @@ class PasswordEntry extends HiveObject {
   @HiveField(7)
   String? notes;
 
+  /// Category for organizing passwords
+  @HiveField(8)
+  String category;
+
+  /// Whether this entry is marked as favorite
+  @HiveField(9)
+  bool isFavorite;
+
   PasswordEntry({
     required this.id,
     required this.platformName,
@@ -50,7 +58,20 @@ class PasswordEntry extends HiveObject {
     required this.dateModified,
     this.websiteUrl,
     this.notes,
+    this.category = 'General',
+    this.isFavorite = false,
   });
+
+  /// Available categories for password entries
+  static const List<String> categories = [
+    'General',
+    'Social',
+    'Banking',
+    'Work',
+    'Shopping',
+    'Entertainment',
+    'Other',
+  ];
 
   /// Creates a copy with updated fields (immutable update pattern)
   PasswordEntry copyWith({
@@ -59,6 +80,8 @@ class PasswordEntry extends HiveObject {
     String? password,
     String? websiteUrl,
     String? notes,
+    String? category,
+    bool? isFavorite,
   }) {
     return PasswordEntry(
       id: id,
@@ -69,6 +92,45 @@ class PasswordEntry extends HiveObject {
       dateModified: DateTime.now(),
       websiteUrl: websiteUrl ?? this.websiteUrl,
       notes: notes ?? this.notes,
+      category: category ?? this.category,
+      isFavorite: isFavorite ?? this.isFavorite,
+    );
+  }
+
+  /// Check if password is older than specified days
+  bool isOlderThan(int days) {
+    return DateTime.now().difference(dateModified).inDays > days;
+  }
+
+  /// Convert to JSON for backup/export
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'platformName': platformName,
+      'username': username,
+      'password': password,
+      'dateCreated': dateCreated.toIso8601String(),
+      'dateModified': dateModified.toIso8601String(),
+      'websiteUrl': websiteUrl,
+      'notes': notes,
+      'category': category,
+      'isFavorite': isFavorite,
+    };
+  }
+
+  /// Create from JSON for restore/import
+  factory PasswordEntry.fromJson(Map<String, dynamic> json) {
+    return PasswordEntry(
+      id: json['id'],
+      platformName: json['platformName'],
+      username: json['username'],
+      password: json['password'],
+      dateCreated: DateTime.parse(json['dateCreated']),
+      dateModified: DateTime.parse(json['dateModified']),
+      websiteUrl: json['websiteUrl'],
+      notes: json['notes'],
+      category: json['category'] ?? 'General',
+      isFavorite: json['isFavorite'] ?? false,
     );
   }
 }

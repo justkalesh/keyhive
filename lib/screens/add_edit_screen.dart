@@ -7,14 +7,6 @@ import '../utils/password_strength.dart';
 import '../utils/password_generator.dart';
 
 /// AddEditScreen - Create or edit password entries.
-/// 
-/// Features:
-/// - TextFields for Platform, Username, Password, Website, Notes
-/// - Password visibility toggle
-/// - Password generator button
-/// - Password strength indicator
-/// - Validation logic
-/// - Save/Update functionality
 class AddEditScreen extends ConsumerStatefulWidget {
   final String? entryId;
 
@@ -40,18 +32,16 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
   bool _isEditing = false;
   PasswordEntry? _existingEntry;
   String _currentPassword = '';
+  String _selectedCategory = 'General';
+  bool _isDuplicatePassword = false;
 
   @override
   void initState() {
     super.initState();
     _isEditing = widget.entryId != null;
 
-    // Listen to password changes for strength indicator
-    _passwordController.addListener(() {
-      setState(() {
-        _currentPassword = _passwordController.text;
-      });
-    });
+    // Listen to password changes for strength indicator and duplicate check
+    _passwordController.addListener(_onPasswordChanged);
 
     if (_isEditing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -66,8 +56,32 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
             _websiteController.text = entry.websiteUrl ?? '';
             _notesController.text = entry.notes ?? '';
             _currentPassword = entry.password;
+            _selectedCategory = entry.category;
           });
         }
+      });
+    }
+  }
+
+  void _onPasswordChanged() {
+    final password = _passwordController.text;
+    setState(() {
+      _currentPassword = password;
+    });
+
+    // Check for duplicate passwords
+    if (password.isNotEmpty) {
+      final allPasswords = ref.read(passwordListProvider);
+      final isDuplicate = allPasswords.any((entry) => 
+        entry.password == password && 
+        entry.id != widget.entryId // Exclude current entry when editing
+      );
+      setState(() {
+        _isDuplicatePassword = isDuplicate;
+      });
+    } else {
+      setState(() {
+        _isDuplicatePassword = false;
       });
     }
   }
@@ -86,7 +100,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
     final generated = PasswordGenerator.generate(length: 16);
     _passwordController.text = generated;
     setState(() {
-      _obscurePassword = false; // Show the generated password
+      _obscurePassword = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -125,6 +139,8 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
           notes: _notesController.text.trim().isEmpty 
               ? null 
               : _notesController.text.trim(),
+          category: _selectedCategory,
+          isFavorite: _existingEntry!.isFavorite,
         );
         await notifier.updatePassword(updatedEntry);
       } else {
@@ -138,6 +154,7 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
           notes: _notesController.text.trim().isEmpty 
               ? null 
               : _notesController.text.trim(),
+          category: _selectedCategory,
         );
       }
 
@@ -220,6 +237,31 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
 
                 const SizedBox(height: 24),
 
+                // Category Dropdown
+                _buildSectionLabel('Category', theme),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedCategory,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  items: PasswordEntry.categories.map((category) {
+                    return DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _selectedCategory = value;
+                      });
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
                 // Username/Email Field
                 _buildSectionLabel('Username or Email', theme),
                 const SizedBox(height: 8),
@@ -252,7 +294,6 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                     suffixIcon: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Generate button
                         IconButton(
                           icon: Icon(
                             Icons.auto_awesome,
@@ -261,7 +302,6 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                           tooltip: 'Generate password',
                           onPressed: _generatePassword,
                         ),
-                        // Visibility toggle
                         IconButton(
                           icon: Icon(
                             _obscurePassword
@@ -284,6 +324,29 @@ class _AddEditScreenState extends ConsumerState<AddEditScreen> {
                     return null;
                   },
                 ),
+
+                // Duplicate Password Warning
+                if (_isDuplicatePassword)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.orange[700],
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'This password is used elsewhere',
+                          style: TextStyle(
+                            color: Colors.orange[700],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                 // Password Strength Indicator
                 PasswordStrengthIndicator(password: _currentPassword),

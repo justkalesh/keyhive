@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../providers/providers.dart';
 
 /// SettingsScreen - App settings and preferences
@@ -259,13 +260,19 @@ class AboutDeveloperScreen extends StatelessWidget {
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                        width: 3,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.person,
-                      size: 50,
-                      color: theme.colorScheme.primary,
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/developer.jpg',
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -328,7 +335,7 @@ class AboutDeveloperScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _LinkTile(
-                    icon: Icons.work_outline,
+                    icon: FontAwesomeIcons.linkedin,
                     title: 'LinkedIn',
                     subtitle: 'linkedin.com/in/justkalesh',
                     url: 'https://www.linkedin.com/in/justkalesh/',
@@ -336,7 +343,7 @@ class AboutDeveloperScreen extends StatelessWidget {
                   ),
                   const Divider(height: 1),
                   _LinkTile(
-                    icon: Icons.code,
+                    icon: FontAwesomeIcons.github,
                     title: 'GitHub',
                     subtitle: 'github.com/justkalesh',
                     url: 'https://github.com/justkalesh/',
@@ -344,7 +351,7 @@ class AboutDeveloperScreen extends StatelessWidget {
                   ),
                   const Divider(height: 1),
                   _LinkTile(
-                    icon: Icons.camera_alt_outlined,
+                    icon: FontAwesomeIcons.instagram,
                     title: 'Instagram',
                     subtitle: '@kalash.hu',
                     url: 'https://www.instagram.com/kalash.hu/',
@@ -352,11 +359,11 @@ class AboutDeveloperScreen extends StatelessWidget {
                   ),
                   const Divider(height: 1),
                   _LinkTile(
-                    icon: Icons.mail_outline,
+                    icon: FontAwesomeIcons.envelope,
                     title: 'Email',
                     subtitle: 'parth.ie.kalash@gmail.com',
                     url: 'mailto:parth.ie.kalash@gmail.com',
-                    color: theme.colorScheme.primary,
+                    color: const Color(0xFFEA4335),
                   ),
                 ],
               ),
@@ -386,7 +393,7 @@ class _LinkTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: color),
+      leading: FaIcon(icon, color: color, size: 22),
       title: Text(title),
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.open_in_new, size: 18),

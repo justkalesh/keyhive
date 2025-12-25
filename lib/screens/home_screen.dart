@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../models/password_entry.dart';
 import '../theme/app_theme.dart';
+import '../utils/clipboard_helper.dart';
 
-/// HomeScreen - Futuristic main screen with password list
+/// HomeScreen - Main screen with password list, favorites, and categories
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -17,6 +18,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  String _selectedCategory = 'All';
 
   @override
   void dispose() {
@@ -43,11 +45,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(searchQueryProvider.notifier).state = value;
   }
 
+  List<PasswordEntry> _filterByCategory(List<PasswordEntry> passwords) {
+    if (_selectedCategory == 'All') return passwords;
+    return passwords.where((p) => p.category == _selectedCategory).toList();
+  }
+
+  List<PasswordEntry> _sortByFavorites(List<PasswordEntry> passwords) {
+    // Separate favorites and non-favorites while preserving provider's sort order
+    final favorites = passwords.where((p) => p.isFavorite).toList();
+    final others = passwords.where((p) => !p.isFavorite).toList();
+    // Return favorites first, then others - both maintain their original sort order
+    return [...favorites, ...others];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final passwords = ref.watch(filteredPasswordsProvider);
+    final rawPasswords = ref.watch(filteredPasswordsProvider);
     final isDarkMode = ref.watch(isDarkModeProvider);
+    
+    // Apply category filter and sort by favorites
+    final filteredByCategory = _filterByCategory(rawPasswords);
+    final passwords = _sortByFavorites(filteredByCategory);
 
     return Scaffold(
       key: _scaffoldKey,
@@ -97,37 +116,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: _toggleSearch,
               )
-            : null,
+            : const SizedBox.shrink(),
+        leadingWidth: _isSearching ? null : 0,
         actions: [
-          // Only show sort when not searching
-          if (!_isSearching)
-            PopupMenuButton<SortOption>(
-              icon: const Icon(Icons.sort_rounded),
-              tooltip: 'Sort',
-              onSelected: (option) {
-                ref.read(sortOptionProvider.notifier).state = option;
-              },
-              itemBuilder: (context) {
-                final currentSort = ref.read(sortOptionProvider);
-                return [
-                  _buildSortMenuItem(SortOption.nameAsc, 'A → Z', Icons.sort_by_alpha_rounded, currentSort),
-                  _buildSortMenuItem(SortOption.nameDesc, 'Z → A', Icons.sort_by_alpha_rounded, currentSort),
-                  _buildSortMenuItem(SortOption.dateNewest, 'Newest', Icons.schedule_rounded, currentSort),
-                  _buildSortMenuItem(SortOption.dateOldest, 'Oldest', Icons.history_rounded, currentSort),
-                ];
-              },
-            ),
           // Search/Close button
           IconButton(
             icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
             onPressed: _isSearching
                 ? () {
                     if (_searchController.text.isNotEmpty) {
-                      // If text exists, just clear it
                       _searchController.clear();
                       _onSearchChanged('');
                     } else {
-                      // If empty, close search bar
                       _toggleSearch();
                     }
                   }
@@ -144,9 +144,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       endDrawer: _buildDrawer(theme, isDarkMode),
-      body: passwords.isEmpty
-          ? _buildEmptyState(theme)
-          : _buildPasswordList(passwords, theme),
+      body: Column(
+        children: [
+          // Category Filter Chips with Sort button
+          if (!_isSearching)
+            SizedBox(
+              height: 48,
+              child: Row(
+                children: [
+                  // Sort button
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: PopupMenuButton<SortOption>(
+                      icon: Icon(
+                        Icons.sort_rounded,
+                        color: theme.colorScheme.primary,
+                      ),
+                      tooltip: 'Sort',
+                      onSelected: (option) {
+                        ref.read(sortOptionProvider.notifier).state = option;
+                      },
+                      itemBuilder: (context) {
+                        final currentSort = ref.read(sortOptionProvider);
+                        return [
+                          _buildSortMenuItem(SortOption.nameAsc, 'A → Z', Icons.sort_by_alpha_rounded, currentSort),
+                          _buildSortMenuItem(SortOption.nameDesc, 'Z → A', Icons.sort_by_alpha_rounded, currentSort),
+                          _buildSortMenuItem(SortOption.dateNewest, 'Newest', Icons.schedule_rounded, currentSort),
+                          _buildSortMenuItem(SortOption.dateOldest, 'Oldest', Icons.history_rounded, currentSort),
+                        ];
+                      },
+                    ),
+                  ),
+                  // Category chips
+                  Expanded(
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(left: 8, right: 16),
+                      children: [
+                        _CategoryChip(
+                          label: 'All',
+                          isSelected: _selectedCategory == 'All',
+                          onTap: () => setState(() => _selectedCategory = 'All'),
+                        ),
+                        ...PasswordEntry.categories.map((category) => _CategoryChip(
+                          label: category,
+                          isSelected: _selectedCategory == category,
+                          onTap: () => setState(() => _selectedCategory = category),
+                        )),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Password List
+          Expanded(
+            child: passwords.isEmpty
+                ? _buildEmptyState(theme)
+                : _buildPasswordList(passwords, theme),
+          ),
+        ],
+      ),
       floatingActionButton: Container(
         decoration: BoxDecoration(
           gradient: isDarkMode ? AppTheme.goldGradient : AppTheme.primaryGradient,
@@ -170,27 +228,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ) {
     final theme = Theme.of(context);
     final isSelected = currentSort == option;
-    final isDark = theme.brightness == Brightness.dark;
-    
-    return PopupMenuItem(
+    return PopupMenuItem<SortOption>(
       value: option,
       child: Row(
         children: [
           Icon(
-            isSelected ? Icons.check_rounded : icon,
+            icon,
             size: 20,
-            color: isSelected 
-                ? theme.colorScheme.primary 
-                : (isDark ? Colors.white70 : Colors.black87),
+            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
           ),
           const SizedBox(width: 12),
           Text(
             label,
             style: TextStyle(
+              color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              color: isSelected 
-                  ? theme.colorScheme.primary 
-                  : (isDark ? Colors.white : Colors.black87),
             ),
           ),
         ],
@@ -267,12 +319,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ref.read(isDarkModeProvider.notifier).state = value;
                 },
               ),
-              onTap: () {
-                ref.read(isDarkModeProvider.notifier).state = !isDarkMode;
-              },
             ),
 
-            const Divider(indent: 16, endIndent: 16),
+            const Divider(),
 
             // Settings
             ListTile(
@@ -366,22 +415,72 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onTap: () {
             Navigator.of(context).pushNamed('/detail', arguments: entry.id);
           },
+          onFavoriteToggle: () {
+            ref.read(passwordListProvider.notifier).toggleFavorite(entry.id);
+          },
+          onLongPress: () {
+            final autoClear = ref.read(clipboardAutoClearProvider);
+            final duration = ref.read(clipboardClearDurationProvider);
+            ClipboardHelper.copyWithFeedback(
+              context,
+              entry.password,
+              message: 'Password copied!',
+              autoClear: autoClear,
+              clearAfter: Duration(seconds: duration),
+            );
+          },
         );
       },
     );
   }
 }
 
-/// Futuristic password tile with gradient accent
+/// Category filter chip
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (_) => onTap(),
+        selectedColor: theme.colorScheme.primary.withValues(alpha: 0.2),
+        checkmarkColor: theme.colorScheme.primary,
+        labelStyle: TextStyle(
+          color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+}
+
+/// Futuristic password tile with gradient accent, favorite star, and favicon
 class _FuturisticPasswordTile extends StatelessWidget {
   final PasswordEntry entry;
   final int index;
   final VoidCallback onTap;
+  final VoidCallback onFavoriteToggle;
+  final VoidCallback onLongPress;
 
   const _FuturisticPasswordTile({
     required this.entry,
     required this.index,
     required this.onTap,
+    required this.onFavoriteToggle,
+    required this.onLongPress,
   });
 
   @override
@@ -403,63 +502,59 @@ class _FuturisticPasswordTile extends StatelessWidget {
         color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: entry.isFavorite 
+              ? Colors.amber.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.05),
         ),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Gradient accent icon
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        accentColor,
-                        accentColor.withValues(alpha: 0.6),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: accentColor.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      entry.platformName.isNotEmpty
-                          ? entry.platformName[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
+                // Platform icon - try favicon if websiteUrl exists
+                _buildPlatformIcon(entry, accentColor),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        entry.platformName,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              entry.platformName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          // Category badge
+                          if (entry.category != 'General')
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                entry.category,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -471,12 +566,169 @@ class _FuturisticPasswordTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.grey[600],
+                // Favorite star
+                IconButton(
+                  icon: Icon(
+                    entry.isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                    color: entry.isFavorite ? Colors.amber : Colors.grey[600],
+                  ),
+                  onPressed: onFavoriteToggle,
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Map of common platform names to their domains
+  static const Map<String, String> _platformDomains = {
+    'google': 'google.com',
+    'gmail': 'gmail.com',
+    'facebook': 'facebook.com',
+    'instagram': 'instagram.com',
+    'twitter': 'twitter.com',
+    'x': 'x.com',
+    'linkedin': 'linkedin.com',
+    'netflix': 'netflix.com',
+    'amazon': 'amazon.com',
+    'spotify': 'spotify.com',
+    'youtube': 'youtube.com',
+    'github': 'github.com',
+    'discord': 'discord.com',
+    'reddit': 'reddit.com',
+    'apple': 'apple.com',
+    'icloud': 'icloud.com',
+    'microsoft': 'microsoft.com',
+    'outlook': 'outlook.com',
+    'yahoo': 'yahoo.com',
+    'dropbox': 'dropbox.com',
+    'paypal': 'paypal.com',
+    'ebay': 'ebay.com',
+    'snapchat': 'snapchat.com',
+    'tiktok': 'tiktok.com',
+    'pinterest': 'pinterest.com',
+    'twitch': 'twitch.tv',
+    'steam': 'steampowered.com',
+    'epic': 'epicgames.com',
+    'playstation': 'playstation.com',
+    'xbox': 'xbox.com',
+    'nintendo': 'nintendo.com',
+    'whatsapp': 'whatsapp.com',
+    'telegram': 'telegram.org',
+    'slack': 'slack.com',
+    'zoom': 'zoom.us',
+    'notion': 'notion.so',
+    'figma': 'figma.com',
+    'adobe': 'adobe.com',
+    'canva': 'canva.com',
+    'wordpress': 'wordpress.com',
+    'medium': 'medium.com',
+    'quora': 'quora.com',
+    'uber': 'uber.com',
+    'airbnb': 'airbnb.com',
+    'booking': 'booking.com',
+    'flipkart': 'flipkart.com',
+    'myntra': 'myntra.com',
+    'swiggy': 'swiggy.com',
+    'zomato': 'zomato.com',
+    'paytm': 'paytm.com',
+    'phonepe': 'phonepe.com',
+    'gpay': 'pay.google.com',
+  };
+
+  Widget _buildPlatformIcon(PasswordEntry entry, Color accentColor) {
+    String? domain;
+
+    // First try websiteUrl
+    if (entry.websiteUrl != null && entry.websiteUrl!.isNotEmpty) {
+      domain = entry.websiteUrl!;
+      if (domain.startsWith('http://') || domain.startsWith('https://')) {
+        try {
+          domain = Uri.parse(domain).host;
+        } catch (_) {}
+      }
+    }
+    
+    // If no websiteUrl, try platform name mapping
+    if (domain == null || domain.isEmpty) {
+      final platformLower = entry.platformName.toLowerCase().trim();
+      domain = _platformDomains[platformLower];
+      
+      // Also check if platform name contains a known name
+      if (domain == null) {
+        for (final platform in _platformDomains.keys) {
+          if (platformLower.contains(platform)) {
+            domain = _platformDomains[platform];
+            break;
+          }
+        }
+      }
+    }
+
+    // If we have a domain, try to load favicon
+    if (domain != null && domain.isNotEmpty) {
+      return Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: accentColor.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Image.network(
+            'https://www.google.com/s2/favicons?domain=$domain&sz=64',
+            width: 52,
+            height: 52,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildFallbackIcon(entry, accentColor);
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return _buildFallbackIcon(entry, accentColor);
+            },
+          ),
+        ),
+      );
+    }
+
+    return _buildFallbackIcon(entry, accentColor);
+  }
+
+  Widget _buildFallbackIcon(PasswordEntry entry, Color accentColor) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            accentColor,
+            accentColor.withValues(alpha: 0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          entry.platformName.isNotEmpty
+              ? entry.platformName[0].toUpperCase()
+              : '?',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
