@@ -10,7 +10,6 @@ import 'screens/home_screen.dart';
 import 'screens/add_edit_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/onboarding_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -18,29 +17,28 @@ void main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(PasswordEntryAdapter());
 
-  // Check if user has seen onboarding (with error handling)
-  bool hasSeenOnboarding = false;
+  // Check if user has completed tutorial
+  bool hasCompletedTutorial = false;
   try {
     final prefs = await SharedPreferences.getInstance();
-    hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+    hasCompletedTutorial = prefs.getBool('has_completed_tutorial') ?? false;
   } catch (e) {
-    // If SharedPreferences fails, default to showing lock screen
     debugPrint('SharedPreferences error: $e');
-    hasSeenOnboarding = true; // Skip onboarding on error
+    hasCompletedTutorial = true; // Skip tutorial on error
   }
 
   runApp(
     ProviderScope(
-      child: KeyHiveApp(showOnboarding: !hasSeenOnboarding),
+      child: KeyHiveApp(showTutorial: !hasCompletedTutorial),
     ),
   );
 }
 
 /// Main application widget with lifecycle observer for lock on minimize
 class KeyHiveApp extends ConsumerStatefulWidget {
-  final bool showOnboarding;
+  final bool showTutorial;
   
-  const KeyHiveApp({super.key, this.showOnboarding = false});
+  const KeyHiveApp({super.key, this.showTutorial = false});
 
   @override
   ConsumerState<KeyHiveApp> createState() => _KeyHiveAppState();
@@ -54,6 +52,13 @@ class _KeyHiveAppState extends ConsumerState<KeyHiveApp> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    
+    // Set tutorial state after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.showTutorial) {
+        ref.read(showTutorialProvider.notifier).state = true;
+      }
+    });
   }
 
   @override
@@ -104,10 +109,9 @@ class _KeyHiveAppState extends ConsumerState<KeyHiveApp> with WidgetsBindingObse
       darkTheme: AppTheme.darkTheme,
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       
-      initialRoute: widget.showOnboarding ? '/onboarding' : '/lock',
+      initialRoute: '/lock',
       
       routes: {
-        '/onboarding': (context) => const OnboardingScreen(),
         '/lock': (context) => const LockScreen(),
         '/': (context) => const LockScreen(),
         '/home': (context) => const HomeScreen(),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/providers.dart';
 import '../models/password_entry.dart';
 import '../theme/app_theme.dart';
 import '../utils/clipboard_helper.dart';
+import '../widgets/tutorial_overlay.dart';
 
 /// HomeScreen - Main screen with password list, favorites, and categories
 class HomeScreen extends ConsumerStatefulWidget {
@@ -63,12 +65,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final theme = Theme.of(context);
     final rawPasswords = ref.watch(filteredPasswordsProvider);
     final isDarkMode = ref.watch(isDarkModeProvider);
+    final showTutorial = ref.watch(showTutorialProvider);
     
     // Apply category filter and sort by favorites
     final filteredByCategory = _filterByCategory(rawPasswords);
     final passwords = _sortByFavorites(filteredByCategory);
 
-    return Scaffold(
+    return TutorialOverlay(
+      showTutorial: showTutorial,
+      onComplete: () async {
+        // Mark tutorial as completed
+        ref.read(showTutorialProvider.notifier).state = false;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('has_completed_tutorial', true);
+      },
+      child: Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
         title: _isSearching
@@ -217,6 +228,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Icon(Icons.add_rounded, color: isDarkMode ? theme.scaffoldBackgroundColor : Colors.white),
         ),
       ),
+    ),
     );
   }
 

@@ -77,6 +77,9 @@ final passwordVisibilityDurationProvider = StateProvider<int>((ref) => 30);
 /// Import conflict resolution mode: true = auto (keep recent), false = manual (show dialog)
 final importAutoResolveProvider = StateProvider<bool>((ref) => false);
 
+/// Show tutorial on home screen (first time user)
+final showTutorialProvider = StateProvider<bool>((ref) => false);
+
 // =============================================================================
 // SORT OPTIONS
 // =============================================================================
