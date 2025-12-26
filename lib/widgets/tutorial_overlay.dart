@@ -71,7 +71,7 @@ class _TutorialOverlayState extends State<TutorialOverlay>
       title: 'Settings & Backup',
       description: 'Access settings, backup your passwords, and customize the app from the menu.',
       icon: Icons.menu_rounded,
-      spotlightPosition: Alignment.topLeft,
+      spotlightPosition: Alignment.topRight,
       showSpotlight: true,
     ),
     TutorialStep(
@@ -137,6 +137,58 @@ class _TutorialOverlayState extends State<TutorialOverlay>
     final step = _steps[_currentStep];
     final size = MediaQuery.of(context).size;
 
+    // Calculate spotlight position based on alignment
+    Positioned? spotlightWidget;
+    if (step.showSpotlight) {
+      final safeTop = MediaQuery.of(context).padding.top;
+      double? top, bottom, left, right;
+      
+      if (step.spotlightPosition == Alignment.topLeft) {
+        top = safeTop + 0; // App bar area
+        left = 10;
+      } else if (step.spotlightPosition == Alignment.topCenter) {
+        top = safeTop + 50; // Below app bar, at category filters
+        left = (size.width - 60) / 2; // Centered
+      } else if (step.spotlightPosition == Alignment.topRight) {
+        top = safeTop + 0; // App bar area
+        right = 10;
+      } else if (step.spotlightPosition == Alignment.bottomRight) {
+        bottom = 30; // FAB position
+        right = 16;
+      } else if (step.spotlightPosition == Alignment.bottomLeft) {
+        bottom = 30;
+        left = 16;
+      } else if (step.spotlightPosition == Alignment.center) {
+        top = (size.height - 60) / 2;
+        left = (size.width - 60) / 2;
+      }
+      
+      spotlightWidget = Positioned(
+        top: top,
+        bottom: bottom,
+        left: left,
+        right: right,
+        child: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: theme.colorScheme.primary,
+              width: 3,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Stack(
       children: [
         widget.child,
@@ -145,174 +197,147 @@ class _TutorialOverlayState extends State<TutorialOverlay>
           opacity: _fadeAnimation,
           child: GestureDetector(
             onTap: () {}, // Prevent taps from passing through
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.85),
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    // Skip button
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: TextButton(
-                          onPressed: _completeTutorial,
-                          child: Text(
-                            'Skip',
-                            style: TextStyle(color: Colors.grey[400]),
+            child: Stack(
+              children: [
+                // Dark background
+                Container(color: Colors.black.withValues(alpha: 0.85)),
+                // Spotlight (absolutely positioned)
+                if (spotlightWidget != null) spotlightWidget,
+                // Content
+                SafeArea(
+                  child: Column(
+                    children: [
+                      // Skip button
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: TextButton(
+                            onPressed: _completeTutorial,
+                            child: Text(
+                              'Skip',
+                              style: TextStyle(color: Colors.grey[400]),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                      
+                      const Spacer(),
                     
-                    const Spacer(),
-                    
-                    // Spotlight indicator (if applicable)
-                    if (step.showSpotlight)
-                      Padding(
-                        padding: EdgeInsets.only(
-                          left: step.spotlightPosition == Alignment.topLeft ? 20 : 0,
-                          right: step.spotlightPosition == Alignment.topRight || 
-                                 step.spotlightPosition == Alignment.bottomRight ? 20 : 0,
+                      // Content card
+                      Container(
+                        margin: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
                         ),
-                        child: Align(
-                          alignment: step.spotlightPosition,
-                          child: Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: theme.colorScheme.primary,
-                                width: 3,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Icon
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
+                              child: Icon(
+                                step.icon,
+                                size: 40,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            
+                            // Title
+                            Text(
+                              step.title,
+                              style: theme.textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            
+                            // Description
+                            Text(
+                              step.description,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: Colors.grey[600],
+                                height: 1.5,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            
+                            // Progress indicators
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                _steps.length,
+                                (index) => AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  width: _currentStep == index ? 24 : 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: _currentStep == index
+                                        ? theme.colorScheme.primary
+                                        : Colors.grey[300],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            
+                            // Navigation buttons
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Back button
+                                _currentStep > 0
+                                    ? TextButton.icon(
+                                        onPressed: _previousStep,
+                                        icon: const Icon(Icons.arrow_back_rounded),
+                                        label: const Text('Back'),
+                                      )
+                                    : const SizedBox(width: 100),
+                                
+                                // Next/Done button
+                                FilledButton.icon(
+                                  onPressed: _nextStep,
+                                  icon: Icon(
+                                    _currentStep == _steps.length - 1
+                                        ? Icons.check_rounded
+                                        : Icons.arrow_forward_rounded,
+                                  ),
+                                  label: Text(
+                                    _currentStep == _steps.length - 1
+                                        ? 'Get Started'
+                                        : 'Next',
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                    
-                    const Spacer(),
-                    
-                    // Content card
-                    Container(
-                      margin: const EdgeInsets.all(24),
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: theme.cardColor,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Icon
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              step.icon,
-                              size: 40,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          
-                          // Title
-                          Text(
-                            step.title,
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          
-                          // Description
-                          Text(
-                            step.description,
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: Colors.grey[600],
-                              height: 1.5,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-                          
-                          // Progress indicators
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(
-                              _steps.length,
-                              (index) => AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                width: _currentStep == index ? 24 : 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: _currentStep == index
-                                      ? theme.colorScheme.primary
-                                      : Colors.grey[300],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          
-                          // Navigation buttons
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // Back button
-                              _currentStep > 0
-                                  ? TextButton.icon(
-                                      onPressed: _previousStep,
-                                      icon: const Icon(Icons.arrow_back_rounded),
-                                      label: const Text('Back'),
-                                    )
-                                  : const SizedBox(width: 100),
-                              
-                              // Next/Done button
-                              FilledButton.icon(
-                                onPressed: _nextStep,
-                                icon: Icon(
-                                  _currentStep == _steps.length - 1
-                                      ? Icons.check_rounded
-                                      : Icons.arrow_forward_rounded,
-                                ),
-                                label: Text(
-                                  _currentStep == _steps.length - 1
-                                      ? 'Get Started'
-                                      : 'Next',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 40),
-                  ],
+                      
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
