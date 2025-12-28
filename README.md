@@ -44,39 +44,39 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     USER AUTHENTICATION                      │
+│                     USER AUTHENTICATION                     │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │ Fingerprint │  │   Face ID   │  │ Device PIN/Pattern  │  │
 │  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
-│         └────────────────┼────────────────────┘              │
-│                          ▼                                   │
-│              ┌───────────────────────┐                       │
-│              │   LOCAL_AUTH CHECK    │                       │
-│              └───────────┬───────────┘                       │
+│         └────────────────┼────────────────────┘             │
+│                          ▼                                  │
+│              ┌───────────────────────┐                      │
+│              │   LOCAL_AUTH CHECK    │                      │
+│              └───────────┬───────────┘                      │
 └──────────────────────────┼──────────────────────────────────┘
                            │ On Success
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   ENCRYPTION LAYER                           │
+│                   ENCRYPTION LAYER                          │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │         FLUTTER SECURE STORAGE                       │    │
-│  │    (Android Keystore / iOS Keychain)                 │    │
+│  │         FLUTTER SECURE STORAGE                      │    │
+│  │    (Android Keystore / iOS Keychain)                │    │
 │  │  ┌─────────────────────────────────────────────┐    │    │
-│  │  │  256-bit AES Encryption Key (Auto-generated) │    │    │
+│  │  │  256-bit AES Encryption Key (Auto-generated)│    │    │
 │  │  └─────────────────────────────────────────────┘    │    │
 │  └─────────────────────────────────────────────────────┘    │
-│                          │                                   │
-│                          ▼ Key used to open                  │
+│                          │                                  │
+│                          ▼ Key used to open                 │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │              HIVE ENCRYPTED BOX                      │    │
-│  │         (AES-256 CBC Mode Encryption)                │    │
+│  │              HIVE ENCRYPTED BOX                     │    │
+│  │         (AES-256 CBC Mode Encryption)               │    │
 │  │  ┌──────────────────────────────────────────────┐   │    │
-│  │  │  📁 Password Entries (Encrypted at Rest)      │   │    │
-│  │  │    • Platform Name                            │   │    │
-│  │  │    • Username/Email                           │   │    │
-│  │  │    • Password                                 │   │    │
-│  │  │    • Website URL                              │   │    │
-│  │  │    • Notes & Category                         │   │    │
+│  │  │  📁 Password Entries  Encrypted at Rest      │   │    │
+│  │  │    • Platform Name                           │   │    │
+│  │  │    • Username/Email                          │   │    │
+│  │  │    • Password                                │   │    │
+│  │  │    • Website URL                             │   │    │
+│  │  │    • Notes & Category                        │   │    │
 │  │  └──────────────────────────────────────────────┘   │    │
 │  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
